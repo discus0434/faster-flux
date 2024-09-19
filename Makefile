@@ -1,17 +1,16 @@
 SHELL := /bin/bash
 
 install-latest-node:
-	sudo npm install n -g \
-		&& n stable \
-		&& sudo apt purge -y nodejs npm \
-		&& sudo apt autoremove -y \
-		&& sudo ln -sf /usr/local/bin/node /usr/bin/node \
+	apt update \
+	&& apt install -y nodejs npm \
+	&& npm install n -g \
+	&& n stable \
+	&& apt purge -y nodejs npm \
+	&& apt autoremove -y \
+	&& ln -sf /usr/local/bin/node /usr/bin/node \
 
-install-venv:
-	pyenv local 3.11.9 \
-	&& python -m venv .venv \
-	&& source .venv/bin/activate \
-	&& pip install --upgrade pip \
+install-dependency:
+	pip install --upgrade pip \
 	&& pip install \
 		torch \
 		torchvision \
@@ -23,3 +22,7 @@ install-venv:
 	&& pip install git+https://github.com/huggingface/diffusers.git \
 	&& pip install transformers accelerate peft nvitop sentencepiece \
 		protobuf imagehash pydantic fastapi uvicorn
+
+up:
+	cd view/faster-flux && npm i && npm start &
+	cd server/ && python main.py
