@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
-import DrawingCanvas from "./DrawingCanvas";
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import DrawingCanvas from './DrawingCanvas';
 
 const App: React.FC = () => {
-  const [canvasData, setCanvasData] = useState<string>("");
-  const [textInput, setTextInput] = useState<string>("");
-  const [outputImage, setOutputImage] = useState<string>("");
+  const [canvasData, setCanvasData] = useState<string>('');
+  const [textInput, setTextInput] = useState<string>('');
+  const [outputImage, setOutputImage] = useState<string>('');
+
+  // キャンバスの参照を保持
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (canvasData || textInput) {
       const sendData = setTimeout(() => {
         postData();
-      }, 500); // Debounce to prevent too many requests
+      }, 500); // デバウンス処理
       return () => clearTimeout(sendData);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // 注意: 必要に応じて依存関係を調整してください
   }, [canvasData, textInput]);
 
   const handleCanvasChange = (dataUrl: string) => {
@@ -27,55 +30,74 @@ const App: React.FC = () => {
 
   const postData = async () => {
     try {
-      const response = await axios.post(
-        `http://127.0.0.1:${process.env.REACT_APP_PORT_NUMBER}/predict`,
-        {
-          image: canvasData,
-          text: textInput,
-        }
-      );
+      const response = await axios.post(`http://127.0.0.1:${process.env.REACT_APP_PORT_NUMBER}/predict`, {
+        image: canvasData,
+        text: textInput,
+      });
       setOutputImage(response.data.imageBase64);
     } catch (error) {
-      console.error("Error posting data:", error);
+      console.error('データの送信中にエラーが発生しました:', error);
     }
   };
 
+  // outputImageが更新されたときにキャンバスに画像を描画
+  useEffect(() => {
+    if (outputImage) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const img = new Image();
+          img.onload = () => {
+            // キャンバスをクリア
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // キャンバスのサイズを画像サイズに合わせる
+            canvas.width = img.width;
+            canvas.height = img.height;
+            // 画像を描画
+            ctx.drawImage(img, 0, 0);
+          };
+          img.onerror = (e) => {
+            console.error('画像の読み込みに失敗しました:', e);
+          };
+          // `outputImage`がデータURLで始まるかを確認
+          if (outputImage.startsWith('data:image')) {
+            img.src = outputImage;
+          } else {
+            img.src = `data:image/png;base64,${outputImage}`;
+          }
+        } else {
+          console.error('2Dコンテキストが取得できませんでした。');
+        }
+      } else {
+        console.error('キャンバス要素が見つかりませんでした。');
+      }
+    }
+  }, [outputImage]);
+
   return (
-    <div style={{ padding: "20px" }}>
-      <div style={{ display: "flex" }}>
-        {/* Left Canvas */}
-        <div style={{ width: "45%", aspectRatio: "1 / 1" }}>
+    <div style={{ padding: '20px' }}>
+      <div style={{ display: 'flex' }}>
+        {/* 左側のキャンバス */}
+        <div style={{ width: '45%', aspectRatio: '1 / 1' }}>
           <DrawingCanvas onCanvasChange={handleCanvasChange} />
         </div>
-        {/* Right Canvas */}
-        <div style={{ width: "45%", aspectRatio: "1 / 1", marginLeft: "10%" }}>
+        {/* 右側のキャンバス */}
+        <div style={{ width: '45%', aspectRatio: '1 / 1', marginLeft: '10%' }}>
           <canvas
-            style={{ border: "1px solid #000", width: "100%", height: "100%" }}
-            ref={(canvas) => {
-              if (canvas && outputImage) {
-                const ctx = canvas.getContext("2d");
-                const img = new Image();
-                img.onload = () => {
-                  if (ctx) {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                  }
-                };
-                img.src = `data:image/png;base64,${outputImage}`;
-              }
-            }}
-          ></canvas>
+            ref={canvasRef}
+            style={{ border: '1px solid #000', width: '100%', height: '100%' }}
+          />
         </div>
       </div>
-      {/* Text Input */}
-      <div style={{ marginTop: "20px" }}>
+      {/* テキスト入力 */}
+      <div style={{ marginTop: '20px' }}>
         <input
           type="text"
           value={textInput}
           onChange={handleTextChange}
-          placeholder="Enter text here"
-          style={{ width: "100%", padding: "10px", fontSize: "16px" }}
+          placeholder="文字を入力してください"
+          style={{ width: '100%', padding: '10px', fontSize: '16px' }}
         />
       </div>
     </div>

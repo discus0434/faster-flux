@@ -59,7 +59,7 @@ class FastPipelineCache:
     def image_is_different(self, image: Image.Image | None) -> bool:
         return (
             image is not None
-            and self._last_input_image_hash - imagehash.phash(image) > 5
+            and self._last_input_image_hash - imagehash.phash(image) > 2
         )
 
     def update_prompt_embeds(
@@ -101,15 +101,16 @@ class FastPipelineWrapper:
         prompt: str,
         image: Image.Image | None = None,
         num_inference_steps: int = 4,
-        strength: float = 0.5,
+        strength: float = 0.8,
         width: int = 1024,
         height: int = 1024,
     ) -> Image.Image:
-        if self.cache.no_difference(prompt, image):
-            return self.cache.last_output_image
+        # if self.cache.no_difference(prompt, image):
+        #     return self.cache.last_output_image
 
         if self.cache.image_is_different(image):
             self.cache.update_last_input_image(image)
+            print("aaa")
         else:
             image = self.cache.last_input_image
 
@@ -121,7 +122,7 @@ class FastPipelineWrapper:
             prompt_embeds = self.cache.prompt_embeds
             pooled_prompt_embeds = self.cache.pooled_prompt_embeds
 
-        image = self.pipe(
+        output_image = self.pipe(
             image=image,
             prompt_embeds=prompt_embeds,
             pooled_prompt_embeds=pooled_prompt_embeds,
@@ -133,9 +134,9 @@ class FastPipelineWrapper:
             generator=self.generator,
         ).images[0]
 
-        self.cache.update_last_output_image(image)
+        self.cache.update_last_output_image(output_image)
 
-        return image
+        return output_image
 
     @torch.inference_mode()
     def _precomute_embeddings(self, prompt: str) -> tuple[torch.Tensor, torch.Tensor]:
@@ -192,13 +193,16 @@ class FastPipelineWrapper:
 
             quantize_(
                 vae,
-                float8_dynamic_activation _float8_weight(granularity=PerRow()),
+                float8_dynamic_activation_float8_weight(granularity=PerRow()),
                 device=self.device,
             )
             vae.to(memory_format=torch.channels_last)
             vae.decoder = torch.compile(
                 vae.decoder, mode="max-autotune", fullgraph=True
             )
+        else:
+            transformer = transformer.to(self.device)
+            vae = vae.to(self.device)
 
         pipe.vae = vae
         pipe.transformer = transformer
@@ -216,7 +220,7 @@ class FastPipelineWrapper:
 
 class FasterFluxAPI:
     def __init__(self):
-        self.pipeline = FastPipelineWrapper(optimize=True)
+        self.pipeline = FastPipelineWrapper(optimize=False)
         self.app = FastAPI()
 
         self.app.add_api_route("/predict", self.predict, methods=["POST"])
@@ -237,10 +241,12 @@ class FasterFluxAPI:
                 _, data = request.image.split(",", 1)
                 image_data = base64.b64decode(data)
                 input_image = Image.open(BytesIO(image_data))
+                input_image.save("b.png")
             else:
                 input_image = None
 
             output_image = self.pipeline(prompt=prompt, image=input_image)
+            output_image.save("a.png")
 
             buffered = BytesIO()
             output_image.save(buffered, format="PNG")

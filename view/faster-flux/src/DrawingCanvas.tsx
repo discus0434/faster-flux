@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect } from 'react';
 
 interface DrawingCanvasProps {
   onCanvasChange: (dataUrl: string) => void;
@@ -25,19 +25,44 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onCanvasChange }) => {
     isDrawing.current = false;
     const canvas = canvasRef.current;
     if (canvas) {
-      onCanvasChange(canvas.toDataURL());
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.beginPath(); // パスをリセット
+
+        // オフスクリーンキャンバスを作成
+        const offscreenCanvas = document.createElement('canvas');
+        offscreenCanvas.width = canvas.width;
+        offscreenCanvas.height = canvas.height;
+        const offscreenCtx = offscreenCanvas.getContext('2d');
+        if (offscreenCtx) {
+          // 背景を白で塗りつぶす
+          offscreenCtx.fillStyle = 'white';
+          offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
+          // 元のキャンバスをオフスクリーンキャンバスに描画
+          offscreenCtx.drawImage(canvas, 0, 0);
+
+          // オフスクリーンキャンバスからデータURLを取得（JPEG形式でエクスポート）
+          const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 1.0);
+          onCanvasChange(dataUrl);
+        } else {
+          // オフスクリーンコンテキストが取得できない場合のフォールバック
+          const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+          onCanvasChange(dataUrl);
+        }
+      }
     }
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing.current) return;
     const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
+    const ctx = canvas?.getContext('2d');
     if (ctx && canvas) {
       const rect = canvas.getBoundingClientRect();
-      ctx.lineWidth = 2;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = "black";
+      ctx.lineWidth = 100;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'gray';
 
       ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
       ctx.stroke();
@@ -49,7 +74,7 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onCanvasChange }) => {
   return (
     <canvas
       ref={canvasRef}
-      style={{ border: "1px solid #000", width: "100%", height: "100%" }}
+      style={{ border: '1px solid #000', width: '100%', height: '100%' }}
       onMouseDown={startDrawing}
       onMouseUp={finishDrawing}
       onMouseMove={draw}
