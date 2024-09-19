@@ -101,16 +101,15 @@ class FastPipelineWrapper:
         prompt: str,
         image: Image.Image | None = None,
         num_inference_steps: int = 4,
-        strength: float = 0.8,
+        strength: float = 0.6,
         width: int = 1024,
         height: int = 1024,
     ) -> Image.Image:
-        # if self.cache.no_difference(prompt, image):
-        #     return self.cache.last_output_image
+        if self.cache.no_difference(prompt, image):
+            return self.cache.last_output_image
 
         if self.cache.image_is_different(image):
             self.cache.update_last_input_image(image)
-            print("aaa")
         else:
             image = self.cache.last_input_image
 
@@ -126,11 +125,11 @@ class FastPipelineWrapper:
             image=image,
             prompt_embeds=prompt_embeds,
             pooled_prompt_embeds=pooled_prompt_embeds,
-            num_inference_steps=int(num_inference_steps * strength),
+            num_inference_steps=num_inference_steps,
             strength=strength,
             width=width,
             height=height,
-            guidance_scale=0.0,
+            guidance_scale=3.5,
             generator=self.generator,
         ).images[0]
 
