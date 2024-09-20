@@ -17,7 +17,7 @@ from faster_flux import FastPipelineWrapper, Mode
 
 torch.set_float32_matmul_precision("medium")
 torch.backends.cudnn.allow_tf32 = True
-ROOT_DIR = Path(__file__).parent.parent
+ROOT_DIR = Path(__file__).parent
 
 logger = logging.getLogger("uvicorn")
 
