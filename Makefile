@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+CURRENT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 install-latest-node:
 	apt update \
@@ -23,6 +24,10 @@ install-dependency:
 	&& pip install transformers accelerate peft nvitop sentencepiece \
 		protobuf imagehash pydantic fastapi uvicorn
 
-up:
-	cd view/faster-flux && npm i && npm start &
-	cd server/ && python main.py
+build:
+	cd ${CURRENT_DIR}/view/txt2img \
+	&& npm install \
+	&& npm run build \
+	&& cd ${CURRENT_DIR}/view/img2img \
+	&& npm install \
+	&& npm run build

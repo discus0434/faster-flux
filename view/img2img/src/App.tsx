@@ -30,7 +30,7 @@ const App: React.FC = () => {
 
   const postData = async () => {
     try {
-      const response = await axios.post(`http://127.0.0.1:${process.env.REACT_APP_PORT_NUMBER}/predict`, {
+      const response = await axios.post('/api/img2img', {
         image: canvasData,
         text: textInput,
       });

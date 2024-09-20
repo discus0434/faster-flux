@@ -1,5 +1,6 @@
 {
-  "name": "faster-flux",
+  "homepage": "/img2img",
+  "name": "img2img",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
