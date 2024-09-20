@@ -7,7 +7,7 @@ build:
 	&& npm run build \
 	&& cd ${CURRENT_DIR}/view/img2img \
 	&& npm install \
-	&& npm run build
+	&& npm run build \
 	&& cd ${CURRENT_DIR} \
 	&& pip install -e .
 
@@ -22,15 +22,6 @@ install-latest-node:
 	&& apt purge -y nodejs npm \
 	&& apt autoremove -y \
 	&& ln -sf /usr/local/bin/node /usr/bin/node \
-
-sudo-install-latest-node:
-	sudo apt update \
-	&& sudo apt install -y nodejs npm \
-	&& sudo npm install n -g \
-	&& sudo n stable \
-	&& sudo apt purge -y nodejs npm \
-	&& sudo apt autoremove -y \
-	&& sudo ln -sf /usr/local/bin/node /usr/bin/node
 
 install-dependency:
 	pip install --upgrade pip \

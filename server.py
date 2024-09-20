@@ -36,7 +36,9 @@ class Response(BaseModel):
 
 
 class FasterFluxAPI:
-    def __init__(self, resolution: int = 512, optimize: bool = True):
+    def __init__(
+        self, resolution: int = 512, optimize: bool = True, num_inference_steps: int = 1
+    ) -> None:
         self.pipeline = FastPipelineWrapper(resolution=resolution, optimize=optimize)
         self.app = FastAPI()
 
@@ -67,10 +69,16 @@ class FasterFluxAPI:
         self._txt2img_lock = asyncio.Lock()
         self._img2img_lock = asyncio.Lock()
 
+        self.num_inference_steps = num_inference_steps
+
     async def txt2img(self, request: Txt2ImgRequest) -> Response:
         async with self._txt2img_lock:
             prompt = request.text
-            output_image = self.pipeline(mode=Mode.TXT2IMG, prompt=prompt)
+            output_image = self.pipeline(
+                mode=Mode.TXT2IMG,
+                prompt=prompt,
+                num_inference_steps=self.num_inference_steps,
+            )
             buffered = BytesIO()
             output_image.save(buffered, format="WEBP")
             image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
@@ -90,7 +98,10 @@ class FasterFluxAPI:
                 input_image = None
 
             output_image = self.pipeline(
-                mode=Mode.IMG2IMG, prompt=prompt, image=input_image
+                mode=Mode.IMG2IMG,
+                prompt=prompt,
+                image=input_image,
+                num_inference_steps=self.num_inference_steps,
             )
 
             buffered = BytesIO()
@@ -103,11 +114,16 @@ class FasterFluxAPI:
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument("--resolution", type=int, default=512)
-    argparser.add_argument("--optimize", type=bool, default=True)
+    argparser.add_argument("--optimize", type=int, default=1)
+    argparser.add_argument("--num_inference_steps", type=int, default=4)
     argparser.add_argument("--server_host", type=str, default="0.0.0.0")
     argparser.add_argument("--server_port", type=int, default=9090)
 
     args = argparser.parse_args()
 
-    api = FasterFluxAPI(resolution=args.resolution, optimize=args.optimize)
+    api = FasterFluxAPI(
+        resolution=args.resolution,
+        optimize=bool(args.optimize),
+        num_inference_steps=args.num_inference_steps,
+    )
     uvicorn.run(api.app, host=args.server_host, port=args.server_port)

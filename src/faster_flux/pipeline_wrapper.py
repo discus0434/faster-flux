@@ -4,13 +4,14 @@ from enum import Enum
 from typing import Literal
 
 import torch
-from diffusers import AutoencoderTiny, FluxImg2ImgPipeline, FluxTransformer2DModel
+from diffusers import AutoencoderTiny, FluxTransformer2DModel
 from PIL import Image
 from torchao.quantization import float8_dynamic_activation_float8_weight, quantize_
 from torchao.quantization.quant_api import PerRow
 from transformers import T5EncoderModel
 
 from ._cache import Cache
+from ._pipeline_flux_img2img import FluxImg2ImgPipeline
 
 logger = logging.getLogger("uvicorn")
 
@@ -86,14 +87,19 @@ class FastPipelineWrapper:
             height=self.resolution,
             guidance_scale=self.guidance_scale,
             generator=self.generator,
-        ).images[0]
+            return_dict=False,
+        )[0][0]
 
         self.cache.update_last_output_image(output_image)
 
         return output_image
 
     @torch.inference_mode()
-    def benchmark(self, mode: Literal[Mode.TXT2IMG, Mode.IMG2IMG] = Mode.TXT2IMG):
+    def benchmark(
+        self,
+        mode: Literal[Mode.TXT2IMG, Mode.IMG2IMG] = Mode.TXT2IMG,
+        num_inference_steps: int = 4,
+    ) -> None:
         if mode == Mode.TXT2IMG:
             print("Start txt2img benchmark")
             elapsed_times = []
@@ -104,7 +110,7 @@ class FastPipelineWrapper:
                     latents=self._latents,
                     prompt_embeds=self.cache.prompt_embeds,
                     pooled_prompt_embeds=self.cache.pooled_prompt_embeds,
-                    num_inference_steps=4,
+                    num_inference_steps=num_inference_steps,
                     strength=1.0,
                     width=self.resolution,
                     height=self.resolution,
@@ -128,7 +134,7 @@ class FastPipelineWrapper:
                     latents=None,
                     prompt_embeds=self.cache.prompt_embeds,
                     pooled_prompt_embeds=self.cache.pooled_prompt_embeds,
-                    num_inference_steps=4,
+                    num_inference_steps=num_inference_steps,
                     strength=0.85,
                     width=self.resolution,
                     height=self.resolution,
@@ -170,6 +176,7 @@ class FastPipelineWrapper:
             text_encoder_2=None,
             torch_dtype=torch.bfloat16,
         ).to(self.device)
+        pipe.scheduler.max_shift = 1.2
 
         text_encoder_2: T5EncoderModel = T5EncoderModel.from_pretrained(
             model_id, subfolder="text_encoder_2", torch_dtype=torch.bfloat16
