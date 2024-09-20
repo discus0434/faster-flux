@@ -31,3 +31,6 @@ build:
 	&& cd ${CURRENT_DIR}/view/img2img \
 	&& npm install \
 	&& npm run build
+
+launch:
+	cd ${CURRENT_DIR} && python main.py
