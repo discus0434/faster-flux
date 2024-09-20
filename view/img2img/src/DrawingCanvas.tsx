@@ -27,27 +27,22 @@ const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ onCanvasChange }) => {
     if (canvas) {
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.beginPath(); // パスをリセット
+        ctx.beginPath();
 
-        // オフスクリーンキャンバスを作成
         const offscreenCanvas = document.createElement('canvas');
         offscreenCanvas.width = canvas.width;
         offscreenCanvas.height = canvas.height;
         const offscreenCtx = offscreenCanvas.getContext('2d');
         if (offscreenCtx) {
-          // 背景を白で塗りつぶす
           offscreenCtx.fillStyle = 'white';
           offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
-          // 元のキャンバスをオフスクリーンキャンバスに描画
           offscreenCtx.drawImage(canvas, 0, 0);
 
-          // オフスクリーンキャンバスからデータURLを取得（JPEG形式でエクスポート）
-          const dataUrl = offscreenCanvas.toDataURL('image/jpeg', 1.0);
+          const dataUrl = offscreenCanvas.toDataURL('image/webp', 1.0);
           onCanvasChange(dataUrl);
         } else {
-          // オフスクリーンコンテキストが取得できない場合のフォールバック
-          const dataUrl = canvas.toDataURL('image/jpeg', 1.0);
+          const dataUrl = canvas.toDataURL('image/webp', 1.0);
           onCanvasChange(dataUrl);
         }
       }

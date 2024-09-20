@@ -64,7 +64,7 @@ const App: React.FC = () => {
           if (outputImage.startsWith('data:image')) {
             img.src = outputImage;
           } else {
-            img.src = `data:image/png;base64,${outputImage}`;
+            img.src = `data:image/webp;base64,${outputImage}`;
           }
         } else {
           console.error('2Dコンテキストが取得できませんでした。');

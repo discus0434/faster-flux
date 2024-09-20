@@ -56,7 +56,7 @@ class FastPipelineWrapper:
         prompt: str,
         image: Image.Image | None = None,
         num_inference_steps: int = 4,
-        img2img_strength: float = 0.6,
+        img2img_strength: float = 0.85,
     ) -> Image.Image:
         if self.cache.no_difference(prompt, image):
             return self.cache.last_output_image
@@ -191,8 +191,10 @@ class FastPipelineWrapper:
         latents = latents.permute(0, 2, 4, 1, 3, 5)
         latents = latents.reshape(1, (height // 2) * (width // 2), num_channels_latents * 4)
 
-        return latents
+        return latents.to(self.device, dtype=torch.bfloat16)
 
     @property
-    def _fake_image(self) -> Image.Image:
-        return torch.distributions.Normal(0, 1).cdf(torch.randn((1, 3, self.resolution, self.resolution)))
+    def _fake_image(self) -> torch.Tensor:
+        return torch.distributions.Normal(0, 1).cdf(torch.randn((1, 3, self.resolution, self.resolution))).to(
+            self.device, dtype=torch.float16
+        )

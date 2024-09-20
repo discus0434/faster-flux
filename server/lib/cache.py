@@ -1,12 +1,7 @@
 from dataclasses import dataclass, field
-
+from PIL import Image
 import imagehash
 import torch
-from PIL import Image
-
-torch.set_float32_matmul_precision("medium")
-torch.backends.cudnn.allow_tf32 = True
-
 
 @dataclass
 class Cache:
@@ -21,7 +16,7 @@ class Cache:
     )
 
     _last_input_image_hash: imagehash.ImageHash = field(
-        default_factory=lambda: imagehash.phash(
+        default_factory=lambda: imagehash.average_hash(
             Image.new("RGB", (1024, 1024), (0, 0, 0))
         )
     )
@@ -40,7 +35,7 @@ class Cache:
     def image_is_different(self, image: Image.Image | None) -> bool:
         return (
             image is not None
-            and self._last_input_image_hash - imagehash.phash(image) > 2
+            and self._last_input_image_hash - imagehash.average_hash(image) > 2
         )
 
     def update_prompt_embeds(
@@ -51,7 +46,7 @@ class Cache:
 
     def update_last_input_image(self, image: Image.Image):
         self.last_input_image = image
-        self._last_input_image_hash = imagehash.phash(image)
+        self._last_input_image_hash = imagehash.average_hash(image)
 
     def update_last_output_image(self, image: Image.Image):
         self.last_output_image = image

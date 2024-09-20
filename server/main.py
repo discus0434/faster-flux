@@ -76,7 +76,7 @@ class FasterFluxAPI:
             prompt = request.text
             output_image = self.pipeline(mode=Mode.TXT2IMG, prompt=prompt)
             buffered = BytesIO()
-            output_image.save(buffered, format="PNG")
+            output_image.save(buffered, format="WEBP")
             image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
             return Response(imageBase64=image_base64)
 
@@ -88,6 +88,8 @@ class FasterFluxAPI:
                 _, data = request.image.split(",", 1)
                 image_data = base64.b64decode(data)
                 input_image = Image.open(BytesIO(image_data))
+                if input_image.mode != "RGB":
+                    input_image = input_image.convert("RGB")
             else:
                 input_image = None
 
@@ -96,12 +98,12 @@ class FasterFluxAPI:
             )
 
             buffered = BytesIO()
-            output_image.save(buffered, format="PNG")
+            output_image.save(buffered, format="WEBP")
             image_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
             return Response(imageBase64=image_base64)
 
 
 if __name__ == "__main__":
-    api = FasterFluxAPI(optimize=False)
+    api = FasterFluxAPI(optimize=True)
     uvicorn.run(api.app, host="0.0.0.0", port=9090)

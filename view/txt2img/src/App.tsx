@@ -1,85 +1,74 @@
-import CircularProgress from '@mui/material/CircularProgress';
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { TextField } from "@mui/material";
 
 function App() {
   const [inputPrompt, setInputPrompt] = useState("");
-  const [lastPrompt, setLastPrompt] = useState("");
-  const [image, setImage] = useState("images/white.jpg");
-  const [isLoading, setIsLoading] = useState(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isFetchingRef = useRef(false);
+  const pendingPromptRef = useRef<string>("");
 
-  const calculateEditDistance = (a: string, b: string) => {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
+  // fetchImage関数を修正し、フェッチ中にプロンプトが変更された場合の処理を追加
+  const fetchImage = useCallback(async (prompt: string): Promise<void> => {
+    isFetchingRef.current = true;
 
-    const matrix = [];
-
-    for (let i = 0; i <= b.length; i++) {
-      matrix[i] = [i];
-    }
-    for (let i = 0; i <= a.length; i++) {
-      matrix[0][i] = i;
-    }
-
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        if (b.charAt(i - 1) === a.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
-          );
-        }
-      }
-    }
-
-    return matrix[b.length][a.length];
-  };
-
-  const fetchImage = useCallback(async (): Promise<void> => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
-    const signal = abortControllerRef.current.signal;
-
-    setIsLoading(true);
     try {
       const response = await fetch('/api/txt2img', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: inputPrompt }),
-        signal,
+        body: JSON.stringify({ text: prompt }),
       });
       const data = await response.json();
-      const imageUrl = `data:image/png;base64,${data.imageBase64}`;
+      const imageBase64 = data.imageBase64;
 
-      setImage(imageUrl);
+      // 画像をCanvasに描画
+      if (canvasRef.current && imageBase64) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const img = new Image();
+          img.onload = () => {
+            // キャンバスのサイズを画像サイズに合わせる
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+          };
+          img.src = `data:image/png;base64,${imageBase64}`;
+        }
+      }
     } catch (error) {
-      if (error instanceof Error && error.name !== 'AbortError') {
-        console.error('Error fetching image:', error);
+      if (error instanceof Error) {
+        console.error('画像の取得中にエラーが発生しました:', error);
       }
     } finally {
-      setIsLoading(false);
+      isFetchingRef.current = false;
+      // フェッチ中にプロンプトが変更されていれば、新たなリクエストを送信
+      if (pendingPromptRef.current && pendingPromptRef.current !== prompt) {
+        const nextPrompt = pendingPromptRef.current;
+        pendingPromptRef.current = "";
+        fetchImage(nextPrompt);
+      }
     }
-  }, [inputPrompt]);
-
-  const handlePromptChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
-    const newPrompt = event.target.value;
-    setInputPrompt(newPrompt);
-    const editDistance = calculateEditDistance(lastPrompt, newPrompt);
-
-    if (editDistance >= 4) {
-      setLastPrompt(newPrompt);
-      fetchImage();
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      abortControllerRef.current?.abort();
-    };
   }, []);
+
+  // プロンプトの変更時に即座にfetchImageを呼び出す（フェッチ中の場合はpendingPromptRefに保存）
+  useEffect(() => {
+    if (inputPrompt.trim() === '') {
+      return;
+    }
+
+    if (!isFetchingRef.current) {
+      fetchImage(inputPrompt);
+    } else {
+      // フェッチ中であれば、最新のプロンプトをpendingPromptRefに保存
+      pendingPromptRef.current = inputPrompt;
+    }
+  }, [inputPrompt, fetchImage]);
+
+  // プロンプトの変更ハンドラー
+  const handlePromptChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    setInputPrompt(event.target.value);
+  };
 
   return (
     <div
@@ -104,14 +93,11 @@ function App() {
           flexDirection: "column",
         }}
       >
-        {isLoading ? (
-          <CircularProgress /> // Show spinner when loading
-        ) : null}
-        <img
-          src={image}
-          alt={`Generated image for ${lastPrompt}`}
+        <canvas
+          ref={canvasRef}
           style={{
             display: "block",
+            width: "100%",
             margin: "0 auto",
             maxWidth: "100%",
             maxHeight: "70%",
@@ -132,7 +118,7 @@ function App() {
             borderRadius: "10px",
             backgroundColor: "#ffffff",
           }}
-          placeholder="Enter a prompt"
+          placeholder="プロンプトを入力してください"
         />
       </div>
     </div>
