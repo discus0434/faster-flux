@@ -70,7 +70,6 @@ class FastPipelineWrapper:
 
         if mode == Mode.TXT2IMG:
             strength = 1.0
-            image = self._fake_image
             latents = self._latents
         else:
             strength = img2img_strength
@@ -245,11 +244,3 @@ class FastPipelineWrapper:
         )
 
         return latents.to(self.device, dtype=torch.bfloat16)
-
-    @property
-    def _fake_image(self) -> torch.Tensor:
-        return (
-            torch.distributions.Normal(0, 1)
-            .cdf(torch.randn((1, 3, self.resolution, self.resolution)))
-            .to(self.device, dtype=torch.float16)
-        )
