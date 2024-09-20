@@ -1,18 +1,16 @@
 import logging
+import time
 from enum import Enum
 from typing import Literal
 
 import torch
 from diffusers import AutoencoderTiny, FluxImg2ImgPipeline, FluxTransformer2DModel
-from lib.cache import Cache
 from PIL import Image
-from pydantic import BaseModel
 from torchao.quantization import float8_dynamic_activation_float8_weight, quantize_
 from torchao.quantization.quant_api import PerRow
 from transformers import T5EncoderModel
 
-torch.set_float32_matmul_precision("medium")
-torch.backends.cudnn.allow_tf32 = True
+from ._cache import Cache
 
 logger = logging.getLogger("uvicorn")
 
@@ -20,11 +18,6 @@ logger = logging.getLogger("uvicorn")
 class Mode(Enum):
     TXT2IMG = "txt2img"
     IMG2IMG = "img2img"
-
-
-class PredictRequest(BaseModel):
-    image: str | None
-    text: str
 
 
 class FastPipelineWrapper:
@@ -98,6 +91,57 @@ class FastPipelineWrapper:
         self.cache.update_last_output_image(output_image)
 
         return output_image
+
+    @torch.inference_mode()
+    def benchmark(self, mode: Literal[Mode.TXT2IMG, Mode.IMG2IMG] = Mode.TXT2IMG):
+        if mode == Mode.TXT2IMG:
+            print("Start txt2img benchmark")
+            elapsed_times = []
+            for _ in range(50):
+                start = time.time()
+                self.pipe(
+                    image=self._fake_image,
+                    latents=self._latents,
+                    prompt_embeds=self.cache.prompt_embeds,
+                    pooled_prompt_embeds=self.cache.pooled_prompt_embeds,
+                    num_inference_steps=4,
+                    strength=1.0,
+                    width=self.resolution,
+                    height=self.resolution,
+                    guidance_scale=self.guidance_scale,
+                    generator=self.generator,
+                ).images[0]
+                end = time.time()
+                print(f"Time: {end - start:.2f}s")
+                elapsed_times.append(end - start)
+
+            print(f"Average time: {sum(elapsed_times) / len(elapsed_times):.2f}s")
+            print(f"Max time: {max(elapsed_times):.2f}s")
+            print(f"Min time: {min(elapsed_times):.2f}s")
+        elif mode == Mode.IMG2IMG:
+            print("Start img2img benchmark")
+            elapsed_times = []
+            for _ in range(50):
+                start = time.time()
+                self.pipe(
+                    image=self.cache.last_input_image,
+                    latents=None,
+                    prompt_embeds=self.cache.prompt_embeds,
+                    pooled_prompt_embeds=self.cache.pooled_prompt_embeds,
+                    num_inference_steps=4,
+                    strength=0.85,
+                    width=self.resolution,
+                    height=self.resolution,
+                    guidance_scale=self.guidance_scale,
+                    generator=self.generator,
+                ).images[0]
+                end = time.time()
+                print(f"Time: {end - start:.2f}s")
+                elapsed_times.append(end - start)
+
+            print(f"Average time: {sum(elapsed_times) / len(elapsed_times):.2f}s")
+            print(f"Max time: {max(elapsed_times):.2f}s")
+            print(f"Min time: {min(elapsed_times):.2f}s")
 
     @torch.inference_mode()
     def _precomute_embeddings(self, prompt: str) -> tuple[torch.Tensor, torch.Tensor]:
@@ -189,12 +233,16 @@ class FastPipelineWrapper:
         )
         latents = latents.view(1, num_channels_latents, height // 2, 2, width // 2, 2)
         latents = latents.permute(0, 2, 4, 1, 3, 5)
-        latents = latents.reshape(1, (height // 2) * (width // 2), num_channels_latents * 4)
+        latents = latents.reshape(
+            1, (height // 2) * (width // 2), num_channels_latents * 4
+        )
 
         return latents.to(self.device, dtype=torch.bfloat16)
 
     @property
     def _fake_image(self) -> torch.Tensor:
-        return torch.distributions.Normal(0, 1).cdf(torch.randn((1, 3, self.resolution, self.resolution))).to(
-            self.device, dtype=torch.float16
+        return (
+            torch.distributions.Normal(0, 1)
+            .cdf(torch.randn((1, 3, self.resolution, self.resolution)))
+            .to(self.device, dtype=torch.float16)
         )

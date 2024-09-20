@@ -1,7 +1,36 @@
+[project]
+name = "faster-flux"
+version = "2024.9.20"
+description = "A faster flux.1 pipeline wrapper."
+authors = [
+    { name = "Verb", email = "discus0434@gmail.com" }
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.optional-dependencies]
+coding = [
+  "ruff",
+  "mypy",
+  "pydantic",
+  "pytest",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/faster_flux"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.ruff]
 line-length = 88
 indent-width = 4
-target-version = "py310"
+target-version = "py311"
 
 [tool.ruff.lint]
 exclude = [".venv"]
@@ -61,6 +90,3 @@ ignore = [
     "PERF203",
     "PERF401",
 ]
-
-[tool.uv.workspace]
-members = ["example"]

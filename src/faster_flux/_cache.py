@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
-from PIL import Image
+
 import imagehash
 import torch
+from PIL import Image
+
 
 @dataclass
 class Cache:

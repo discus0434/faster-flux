@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import base64
 import logging
@@ -9,9 +10,10 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from lib.pipeline_wrapper import FastPipelineWrapper, Mode
 from PIL import Image
 from pydantic import BaseModel
+
+from faster_flux import FastPipelineWrapper, Mode
 
 torch.set_float32_matmul_precision("medium")
 torch.backends.cudnn.allow_tf32 = True
@@ -53,18 +55,12 @@ class FasterFluxAPI:
         )
         self.app.mount(
             "/txt2img",
-            StaticFiles(
-                directory=ROOT_DIR / "view" / "txt2img" / "build",
-                html=True
-            ),
+            StaticFiles(directory=ROOT_DIR / "view" / "txt2img" / "build", html=True),
             name="txt2img",
         )
         self.app.mount(
             "/img2img",
-            StaticFiles(
-                directory=ROOT_DIR / "view" / "img2img" / "build",
-                html=True
-            ),
+            StaticFiles(directory=ROOT_DIR / "view" / "img2img" / "build", html=True),
             name="img2img",
         )
 
@@ -105,5 +101,13 @@ class FasterFluxAPI:
 
 
 if __name__ == "__main__":
-    api = FasterFluxAPI(optimize=True)
-    uvicorn.run(api.app, host="0.0.0.0", port=9090)
+    argparser = argparse.ArgumentParser()
+    argparser.add_argument("--resolution", type=int, default=512)
+    argparser.add_argument("--optimize", type=bool, default=True)
+    argparser.add_argument("--server_host", type=str, default="0.0.0.0")
+    argparser.add_argument("--server_port", type=int, default=9090)
+
+    args = argparser.parse_args()
+
+    api = FasterFluxAPI(resolution=args.resolution, optimize=args.optimize)
+    uvicorn.run(api.app, host=args.server_host, port=args.server_port)
