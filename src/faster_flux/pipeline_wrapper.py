@@ -200,7 +200,7 @@ class FastPipelineWrapper:
             )
             transformer.to(memory_format=torch.channels_last)
             transformer = torch.compile(
-                transformer, mode="max-autotune", fullgraph=True
+                transformer, options={"triton.cudagraphs": True}, fullgraph=True
             )
 
             quantize_(
@@ -210,7 +210,7 @@ class FastPipelineWrapper:
             )
             vae.to(memory_format=torch.channels_last)
             vae.decoder = torch.compile(
-                vae.decoder, mode="max-autotune", fullgraph=True
+                vae.decoder, options={"triton.cudagraphs": True}, fullgraph=True
             )
         else:
             transformer = transformer.to(self.device)
